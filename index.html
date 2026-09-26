@@ -72,7 +72,7 @@ footer{text-align:center;color:var(--muted);font-size:.82rem;padding:22px 0 8px}
 <div class="wrap">
 <header>
   <h1>🌦️ Weather Word Find</h1>
-  <p>Team Challenge • Find the same weather words, earn points for your team, and watch your color fill the board.</p>
+  <p>Team Challenge • Everyone works on the same live puzzle. Find a word first, claim it in your team color, and score a point.</p>
 </header>
 
 <div class="tabs">
@@ -109,7 +109,7 @@ footer{text-align:center;color:var(--muted);font-size:.82rem;padding:22px 0 8px}
     <div class="notice">
       <span class="team-badge"><span class="swatch" id="studentSwatch"></span><span id="studentTeamName"></span></span>
       <span> • </span><strong id="studentScore">0</strong> / 40 words
-      <div class="help">Drag across a word, or click/tap the first letter and then the last letter. Your team's finds are shown in your team color.</div>
+      <div class="help">Drag across a word, or click/tap the first letter and then the last letter. Once any team finds a word, it is claimed for the whole class in that team's color.</div>
     </div>
 
     <div class="game-layout">
@@ -163,7 +163,7 @@ footer{text-align:center;color:var(--muted);font-size:.82rem;padding:22px 0 8px}
     <div class="notice">
       <strong id="dashName"></strong><br>
       Student code: <span class="code" id="dashCode"></span>
-      <div class="help">Every team is solving the same puzzle. A team earns one point when that team finds a word.</div>
+      <div class="help">Everyone is solving one shared puzzle. Each word can be claimed only once. The team that finds it first earns the point and colors that word on everyone's board.</div>
     </div>
 
     <div class="actions">
@@ -210,7 +210,7 @@ const TEAM_COLORS = [
 const DEFAULT_TEAM_NAMES = ["Cumulus","Stratus","Cirrus","Supercell","Jet Stream","Radar"];
 
 const $ = id => document.getElementById(id);
-let student = {code:"", name:"", teamId:"", teamName:"", color:"#2f80ed", found:[]};
+let student = {code:"", name:"", teamId:"", teamName:"", color:"#2f80ed", globalFinds:[]};
 let teacher = {code:"", pin:""};
 let studentPoll = null, teacherPoll = null;
 let dragStart = null, dragCurrent = null, pointerDragging = false, clickStart = null;
@@ -313,10 +313,18 @@ async function finishSelection(a,b){
   if(!coords || coords.length<2){message("Select a straight horizontal, vertical, or diagonal word.");return}
   const word=wordForCoords(coords);
   if(!word || !sameCanonical(word,coords)){message("Not one of the weather words. Keep looking!");return}
-  if(student.found.includes(word)){message(student.teamName+" already found "+word+".");return}
+  const existing = student.globalFinds.find(f=>f.word===word);
+  if(existing){
+    message(word+" was already claimed by "+existing.teamName+".");
+    return;
+  }
   try{
     const j=await backend({action:"wordFindClaim",gameCode:student.code,teamId:student.teamId,studentName:student.name,word});
-    message("✓ "+word+"! Point for "+student.teamName+".",true);
+    if(j.alreadyClaimed){
+      message(word+" was just claimed by "+(j.teamName||"another team")+".");
+    } else {
+      message("✓ "+word+"! Point for "+student.teamName+".",true);
+    }
     await refreshStudent();
   }catch(e){message(e.message)}
 }
@@ -330,19 +338,24 @@ function message(text,good=false){
 function renderWords(){
   $("studentWords").innerHTML="";
   WORDS.forEach(w=>{
+    const f=student.globalFinds.find(x=>x.word===w);
     const d=document.createElement("div");
-    d.className="word"+(student.found.includes(w)?" done":"");
-    d.textContent=w;
+    d.className="word"+(f?" done":"");
+    d.textContent=f ? w+" • "+f.teamName : w;
+    if(f){
+      d.style.borderLeft="5px solid "+f.color;
+      d.style.paddingLeft="8px";
+    }
     $("studentWords").appendChild(d);
   });
 }
 function paintStudentBoard(){
   [...$("studentBoard").children].forEach(c=>{c.classList.remove("found");c.querySelector(".dot").style.background=""});
-  student.found.forEach(w=>{
-    (SOLUTIONS[w]||[]).forEach(([r,c])=>{
+  student.globalFinds.forEach(f=>{
+    (SOLUTIONS[f.word]||[]).forEach(([r,c])=>{
       const cell=$("studentBoard").children[r*20+c];
       cell.classList.add("found");
-      cell.querySelector(".dot").style.background=student.color;
+      cell.querySelector(".dot").style.background=f.color;
     });
   });
 }
@@ -393,10 +406,9 @@ async function refreshStudent(){
   if(!student.code||!student.teamId)return;
   try{
     const j=await backend({action:"wordFindState",gameCode:student.code,teamId:student.teamId});
-    student.found=j.myFoundWords||[];
+    student.globalFinds=j.finds||[];
     const me=(j.teams||[]).find(t=>t.id===student.teamId);
-    if(me){student.color=me.color;student.teamName=me.name;$("studentSwatch").style.background=me.color;$("studentTeamName").textContent=me.name}
-    $("studentScore").textContent=student.found.length;
+    if(me){student.color=me.color;student.teamName=me.name;$("studentSwatch").style.background=me.color;$("studentTeamName").textContent=me.name;$("studentScore").textContent=me.score}
     paintStudentBoard();renderWords();renderLeaderboard($("studentLeaderboard"),j.teams||[]);
   }catch(e){}
 }
