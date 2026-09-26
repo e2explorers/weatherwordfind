@@ -415,7 +415,7 @@ $("teamCount").addEventListener("change",renderTeamFields);renderTeamFields();
 
 $("createGame").addEventListener("click",async()=>{
   const gameName=$("gameName").value.trim(),pin=$("teacherPinCreate").value.trim();
-  const teams=[...$("teamNameFields input")].map((inp,i)=>({name:inp.value.trim()||DEFAULT_TEAM_NAMES[i],color:TEAM_COLORS[i].hex,colorName:TEAM_COLORS[i].name}));
+  const teams=[...document.querySelectorAll("#teamNameFields input")].map((inp,i)=>({name:inp.value.trim()||DEFAULT_TEAM_NAMES[i],color:TEAM_COLORS[i].hex,colorName:TEAM_COLORS[i].name}));
   if(!gameName||pin.length<4){show("createStatus",true);$("createStatus").textContent="Enter a game name and a teacher PIN of at least 4 characters.";return}
   try{
     const j=await backend({action:"wordFindCreateGame",gameName,pin,teams});
