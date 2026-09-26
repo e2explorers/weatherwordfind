@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Weather Word Find: Team Challenge</title>
+<style>
+:root{
+  --ink:#17324a;--muted:#607486;--line:#d7e2e8;--panel:#fff;--accent:#2d7fa3;--accent2:#1f607c;
+  --soft:#f5fafc;--good:#2f7d4a;--warn:#9a4f14;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:linear-gradient(#eaf4f8,#f8fbfc);color:var(--ink)}
+.wrap{width:min(1180px,100%);margin:auto;padding:20px}
+header{text-align:center;padding:8px 0 18px}
+h1{font-size:clamp(2rem,5vw,3.5rem);line-height:1;margin:0 0 8px}
+header p{margin:0;color:var(--muted)}
+.tabs{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:14px 0 18px}
+.tabs button,.btn{border:0;border-radius:13px;padding:11px 16px;font:inherit;font-weight:800;cursor:pointer}
+.tabs button{background:#fff;border:1px solid var(--line);color:var(--ink)}
+.tabs button.active,.btn.primary{background:var(--accent);color:#fff}
+.btn.secondary{background:#edf3f6;color:var(--ink)}
+.btn.danger{background:#923b3b;color:#fff}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:20px;box-shadow:0 12px 35px rgba(23,50,74,.07)}
+.view{display:none}.view.active{display:block}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+@media(max-width:760px){.grid2{grid-template-columns:1fr}}
+.field{margin-bottom:14px}
+label{display:block;font-weight:800;margin-bottom:6px}
+input,select{width:100%;padding:12px;border:1px solid var(--line);border-radius:12px;font:inherit;font-size:16px;background:#fff;color:var(--ink)}
+.help{font-size:.88rem;color:var(--muted);margin-top:5px}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.notice{padding:12px 14px;border-radius:12px;background:var(--soft);border:1px solid var(--line);margin:12px 0}
+.notice.good{background:#eef8f1;border-color:#b7d9c2;color:var(--good)}
+.error{color:#9e2f2f;min-height:1.3em;margin-top:8px}
+.hidden{display:none!important}
+.code{font-size:2rem;font-weight:900;letter-spacing:.1em;color:var(--accent2)}
+.game-layout{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:18px;align-items:start}
+@media(max-width:900px){.game-layout{grid-template-columns:1fr}}
+.board-shell{background:#fff;border:1px solid var(--line);border-radius:18px;padding:12px;overflow:auto;touch-action:pan-y}
+.word-grid{display:grid;grid-template-columns:repeat(20,1fr);width:min(760px,100%);aspect-ratio:1/1;margin:auto;user-select:none;-webkit-user-select:none;touch-action:none}
+.cell{display:flex;align-items:center;justify-content:center;border:1px solid #e5edf2;font-weight:800;font-size:clamp(.55rem,1.6vw,1.08rem);position:relative;cursor:pointer;min-width:0}
+.cell.preview{outline:2px solid var(--accent);outline-offset:-2px;background:#e7f4fa}
+.cell.found{color:#102231}
+.cell .dot{position:absolute;inset:9%;border-radius:6px;opacity:.34;z-index:0}
+.cell .letter{position:relative;z-index:1}
+.side{display:grid;gap:14px}
+.scorecard,.wordbox{background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px}
+.team-badge{display:inline-flex;align-items:center;gap:8px;font-weight:900}
+.swatch{width:16px;height:16px;border-radius:50%;display:inline-block}
+.words{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 10px;font-size:.88rem}
+@media(max-width:440px){.words{grid-template-columns:1fr}}
+.word{padding:4px 6px;border-radius:8px}
+.word.done{text-decoration:line-through;opacity:.52}
+.leader{display:grid;gap:8px}
+.team-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:9px 10px;border:1px solid var(--line);border-radius:11px;background:#fff}
+.team-left{display:flex;align-items:center;gap:8px;min-width:0}
+.team-name{font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.team-score{font-weight:900;font-size:1.05rem}
+.flash{animation:flash .65s ease}
+@keyframes flash{0%{transform:scale(.98)}45%{transform:scale(1.02)}100%{transform:scale(1)}}
+@media(prefers-reduced-motion:reduce){.flash{animation:none}}
+.teacher-board .cell{cursor:default}
+.small{font-size:.86rem}
+.setup-teams{display:grid;gap:8px;margin-top:10px}
+.setup-team{display:flex;align-items:center;gap:10px}
+.setup-team input{margin:0}
+footer{text-align:center;color:var(--muted);font-size:.82rem;padding:22px 0 8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>🌦️ Weather Word Find</h1>
+  <p>Team Challenge • Find the same weather words, earn points for your team, and watch your color fill the board.</p>
+</header>
+
+<div class="tabs">
+  <button class="active" data-view="studentView">Student / Team</button>
+  <button data-view="teacherView">Teacher Dashboard</button>
+</div>
+
+<section id="studentView" class="view active panel">
+  <div id="joinPanel">
+    <div class="grid2">
+      <div class="field">
+        <label for="studentCode">Class code</label>
+        <input id="studentCode" maxlength="8" placeholder="WFAB12" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="studentName">Your first name / class name</label>
+        <input id="studentName" maxlength="40" placeholder="Morgan">
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn primary" id="loadTeams" type="button">Find My Class</button>
+    </div>
+    <div id="joinError" class="error"></div>
+    <div id="teamChoice" class="hidden">
+      <div class="field">
+        <label for="teamSelect">Choose your team</label>
+        <select id="teamSelect"></select>
+      </div>
+      <button class="btn primary" id="joinGame" type="button">Join Team Challenge</button>
+    </div>
+  </div>
+
+  <div id="studentGame" class="hidden">
+    <div class="notice">
+      <span class="team-badge"><span class="swatch" id="studentSwatch"></span><span id="studentTeamName"></span></span>
+      <span> • </span><strong id="studentScore">0</strong> / 40 words
+      <div class="help">Drag across a word, or click/tap the first letter and then the last letter. Your team's finds are shown in your team color.</div>
+    </div>
+
+    <div class="game-layout">
+      <div class="board-shell"><div id="studentBoard" class="word-grid" aria-label="Weather word find letter grid"></div></div>
+      <aside class="side">
+        <div class="scorecard">
+          <h3 style="margin:0 0 10px">🏁 Live Team Scores</h3>
+          <div id="studentLeaderboard" class="leader"></div>
+        </div>
+        <div class="wordbox">
+          <h3 style="margin:0 0 10px">🔎 Words to Find</h3>
+          <div id="studentWords" class="words"></div>
+        </div>
+        <div id="studentMessage" class="notice hidden" aria-live="polite"></div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<section id="teacherView" class="view panel">
+  <div id="teacherSetup" class="grid2">
+    <div>
+      <h2 style="margin-top:0">Create a Team Challenge</h2>
+      <div class="field"><label for="gameName">Class / game name</label><input id="gameName" value="Weather Bellringer"></div>
+      <div class="field"><label for="teacherPinCreate">Teacher PIN</label><input id="teacherPinCreate" type="password" minlength="4" placeholder="Private PIN"></div>
+      <div class="field">
+        <label for="teamCount">Number of teams</label>
+        <select id="teamCount">
+          <option value="2">2 teams</option>
+          <option value="3">3 teams</option>
+          <option value="4" selected>4 teams</option>
+          <option value="5">5 teams</option>
+          <option value="6">6 teams</option>
+        </select>
+      </div>
+      <div id="teamNameFields" class="setup-teams"></div>
+      <button class="btn primary" id="createGame" type="button" style="margin-top:12px">Create Game Code</button>
+      <div id="createStatus" class="notice hidden"></div>
+    </div>
+
+    <div>
+      <h2 style="margin-top:0">Open Existing Game</h2>
+      <div class="field"><label for="teacherCode">Game code</label><input id="teacherCode" maxlength="8" placeholder="WFAB12"></div>
+      <div class="field"><label for="teacherPin">Teacher PIN</label><input id="teacherPin" type="password"></div>
+      <button class="btn primary" id="openGame" type="button">Open Dashboard</button>
+      <div id="teacherError" class="error"></div>
+    </div>
+  </div>
+
+  <div id="teacherDash" class="hidden">
+    <div class="notice">
+      <strong id="dashName"></strong><br>
+      Student code: <span class="code" id="dashCode"></span>
+      <div class="help">Every team is solving the same puzzle. A team earns one point when that team finds a word.</div>
+    </div>
+
+    <div class="actions">
+      <button class="btn secondary" id="refreshTeacher" type="button">Refresh</button>
+      <button class="btn danger" id="resetGame" type="button">Reset Team Finds</button>
+    </div>
+
+    <div class="game-layout" style="margin-top:16px">
+      <div class="board-shell">
+        <h3 style="margin:0 0 10px">Combined Class View</h3>
+        <div class="help" style="margin-bottom:10px">Cells show all team colors that have claimed words crossing that letter.</div>
+        <div id="teacherBoard" class="word-grid teacher-board"></div>
+      </div>
+      <aside class="side">
+        <div class="scorecard">
+          <h3 style="margin:0 0 10px">🏁 Leaderboard</h3>
+          <div id="teacherLeaderboard" class="leader"></div>
+        </div>
+        <div class="wordbox">
+          <h3 style="margin:0 0 10px">Team Progress</h3>
+          <div id="teacherProgress" class="small"></div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<footer>Based on the NOAA/NSSL Weather Word Find provided for this class. This digital classroom adaptation uses the same puzzle grid and vocabulary.</footer>
+</div>
+
+<script>
+const APP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwjyWBMnwGwR6Rc0X2kdRtz5Y186vXcJ69Sk-w49DiF0o26ZfA1TYE0M_LxJKgi9CQK/exec";
+const GRID = ["CGPDHRAMTSLAEPMFBISE", "ALSIETZHLESLNDNADEER", "TOOUDTUETTTWERUEEUOR", "MTFUNNELCLOUDCTZEAEE", "OHRODTEMPERATURENSOA", "SEVERESTORMOBTDEEERW", "PRRWARNINGSEENMRPAJE", "HMDFZRLUGCHRIOABDUVN", "EOULZNCHTOEWMREAARSI", "RMHAILISHNLEIFREROCO", "EERSLGDTOVTOCDTSEIYO", "HTOHBRHLYEECRLSHCTAW", "TESFYGCTRCRROOTLFNTF", "ARULUYRWNTMABCELROOO", "EBIOCENACIRRUHJTRRGR", "WNROULRDIONZRESNEFRT", "EDSDEWPOINTGSAACEMDC", "OEKALFWONSSCTDAEHROI", "MCCORUHANETROSENHAIE", "ALYAEOCMLMDRTUNMNWII"];
+const WORDS = ["AIR", "ANEMOMETER", "ATMOSPHERE", "BLIZZARD", "CLOUD", "COLD FRONT", "CONVECTION", "DEW POINT", "DROUGHT", "DRY LINE", "FLASH FLOOD", "FOG", "FORECAST", "FUNNEL CLOUD", "HAIL", "HURRICANE", "ICICLE", "JET STREAM", "LIGHTNING", "MESOCYCLONE", "METEOROLOGIST", "MICROBURST", "RADAR", "RAIN", "SEA BREEZE", "SEVERE STORM", "SLEET", "SNOWFLAKE", "STORM SHELTER", "SUN", "SUPERCELL", "TEMPERATURE", "THERMOMETER", "THUNDER", "TORNADO", "WARM FRONT", "WARNING", "WATCH", "WEATHER", "WIND"];
+const SOLUTIONS = {"AIR": [[11, 18], [10, 17], [9, 16]], "ANEMOMETER": [[3, 17], [4, 16], [5, 15], [6, 14], [7, 13], [8, 12], [9, 11], [10, 10], [11, 9], [12, 8]], "ATMOSPHERE": [[1, 0], [2, 0], [3, 0], [4, 0], [5, 0], [6, 0], [7, 0], [8, 0], [9, 0], [10, 0]], "BLIZZARD": [[11, 4], [10, 4], [9, 4], [8, 4], [7, 4], [6, 4], [5, 4], [4, 4]], "CLOUD": [[0, 0], [1, 1], [2, 2], [3, 3], [4, 4]], "COLD FRONT": [[13, 13], [12, 13], [11, 13], [10, 13], [9, 13], [8, 13], [7, 13], [6, 13], [5, 13]], "CONVECTION": [[7, 9], [8, 9], [9, 9], [10, 9], [11, 9], [12, 9], [13, 9], [14, 9], [15, 9], [16, 9]], "DEW POINT": [[16, 3], [16, 4], [16, 5], [16, 6], [16, 7], [16, 8], [16, 9], [16, 10]], "DROUGHT": [[16, 1], [15, 2], [14, 3], [13, 4], [12, 5], [11, 6], [10, 7]], "DRY LINE": [[10, 6], [11, 5], [12, 4], [13, 3], [14, 2], [15, 1], [16, 0]], "FLASH FLOOD": [[7, 3], [8, 3], [9, 3], [10, 3], [11, 3], [12, 3], [13, 3], [14, 3], [15, 3], [16, 3]], "FOG": [[12, 16], [13, 17], [14, 18]], "FORECAST": [[12, 19], [13, 18], [14, 17], [15, 16], [16, 15], [17, 14], [18, 13], [19, 12]], "FUNNEL CLOUD": [[3, 2], [3, 3], [3, 4], [3, 5], [3, 6], [3, 7], [3, 8], [3, 9], [3, 10], [3, 11], [3, 12]], "HAIL": [[9, 2], [9, 3], [9, 4], [9, 5]], "HURRICANE": [[14, 13], [14, 12], [14, 11], [14, 10], [14, 9], [14, 8], [14, 7], [14, 6], [14, 5]], "ICICLE": [[8, 19], [9, 18], [10, 17], [11, 16], [12, 15], [13, 14]], "JET STREAM": [[14, 14], [13, 14], [12, 14], [11, 14], [10, 14], [9, 14], [8, 14], [7, 14], [6, 14]], "LIGHTNING": [[8, 3], [9, 4], [10, 5], [11, 6], [12, 7], [13, 8], [14, 9], [15, 10], [16, 11]], "MESOCYCLONE": [[18, 0], [17, 1], [16, 2], [15, 3], [14, 4], [13, 5], [12, 6], [11, 7], [10, 8], [9, 9], [8, 10]], "METEOROLOGIST": [[16, 17], [15, 16], [14, 15], [13, 14], [12, 13], [11, 12], [10, 11], [9, 10], [8, 9], [7, 8], [6, 7], [5, 6], [4, 5]], "MICROBURST": [[8, 12], [9, 12], [10, 12], [11, 12], [12, 12], [13, 12], [14, 12], [15, 12], [16, 12], [17, 12]], "RADAR": [[5, 18], [6, 17], [7, 16], [8, 15], [9, 14]], "RAIN": [[13, 6], [14, 7], [15, 8], [16, 9]], "SEA BREEZE": [[10, 15], [9, 15], [8, 15], [7, 15], [6, 15], [5, 15], [4, 15], [3, 15], [2, 15]], "SEVERE STORM": [[5, 0], [5, 1], [5, 2], [5, 3], [5, 4], [5, 5], [5, 6], [5, 7], [5, 8], [5, 9], [5, 10]], "SLEET": [[0, 9], [1, 8], [2, 7], [3, 6], [4, 5]], "SNOWFLAKE": [[17, 9], [17, 8], [17, 7], [17, 6], [17, 5], [17, 4], [17, 3], [17, 2], [17, 1]], "STORM SHELTER": [[1, 10], [2, 10], [3, 10], [4, 10], [5, 10], [6, 10], [7, 10], [8, 10], [9, 10], [10, 10], [11, 10], [12, 10]], "SUN": [[1, 2], [2, 3], [3, 4]], "SUPERCELL": [[8, 18], [7, 17], [6, 16], [5, 15], [4, 14], [3, 13], [2, 12], [1, 11], [0, 10]], "TEMPERATURE": [[4, 5], [4, 6], [4, 7], [4, 8], [4, 9], [4, 10], [4, 11], [4, 12], [4, 13], [4, 14], [4, 15]], "THERMOMETER": [[3, 1], [4, 1], [5, 1], [6, 1], [7, 1], [8, 1], [9, 1], [10, 1], [11, 1], [12, 1], [13, 1]], "THUNDER": [[0, 8], [1, 7], [2, 6], [3, 5], [4, 4], [5, 3], [6, 2]], "TORNADO": [[12, 18], [13, 17], [14, 16], [15, 15], [16, 14], [17, 13], [18, 12]], "WARM FRONT": [[19, 17], [18, 17], [17, 17], [16, 17], [15, 17], [14, 17], [13, 17], [12, 17], [11, 17]], "WARNING": [[6, 3], [6, 4], [6, 5], [6, 6], [6, 7], [6, 8], [6, 9]], "WATCH": [[11, 19], [11, 18], [11, 17], [11, 16], [11, 15]], "WEATHER": [[15, 0], [14, 0], [13, 0], [12, 0], [11, 0], [10, 0], [9, 0]], "WIND": [[8, 11], [7, 12], [6, 13], [5, 14]]};
+const TEAM_COLORS = [
+  {name:"Blue", hex:"#2f80ed"},
+  {name:"Green", hex:"#2f9e68"},
+  {name:"Purple", hex:"#8b5cf6"},
+  {name:"Orange", hex:"#e67e22"},
+  {name:"Rose", hex:"#d85b78"},
+  {name:"Teal", hex:"#159e9c"}
+];
+const DEFAULT_TEAM_NAMES = ["Cumulus","Stratus","Cirrus","Supercell","Jet Stream","Radar"];
+
+const $ = id => document.getElementById(id);
+let student = {code:"", name:"", teamId:"", teamName:"", color:"#2f80ed", found:[]};
+let teacher = {code:"", pin:""};
+let studentPoll = null, teacherPoll = null;
+let dragStart = null, dragCurrent = null, pointerDragging = false, clickStart = null;
+
+document.querySelectorAll(".tabs button").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    document.querySelectorAll(".tabs button").forEach(b=>b.classList.toggle("active",b===btn));
+    document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
+    $(btn.dataset.view).classList.add("active");
+  });
+});
+
+function show(id,yes=true){$(id).classList.toggle("hidden",!yes)}
+function esc(s){return String(s??"")}
+
+async function backend(data){
+  const r = await fetch(APP_SCRIPT_URL,{
+    method:"POST",
+    headers:{"Content-Type":"text/plain;charset=utf-8"},
+    body:JSON.stringify(data)
+  });
+  const j = await r.json();
+  if(!j.ok) throw new Error(j.error||"Request failed");
+  return j;
+}
+
+function coordKey(r,c){return r+","+c}
+function normalizeLine(a,b){
+  const dr=b.r-a.r, dc=b.c-a.c;
+  const adr=Math.abs(dr), adc=Math.abs(dc);
+  if(!(dr===0 || dc===0 || adr===adc)) return null;
+  const steps=Math.max(adr,adc);
+  const sr=steps?dr/steps:0, sc=steps?dc/steps:0;
+  const coords=[];
+  for(let i=0;i<=steps;i++) coords.push([a.r+sr*i,a.c+sc*i]);
+  return coords;
+}
+function wordForCoords(coords){
+  if(!coords) return null;
+  const s=coords.map(([r,c])=>GRID[r][c]).join("");
+  const rev=s.split("").reverse().join("");
+  for(const w of WORDS){
+    const t=w.replaceAll(" ","");
+    if(t===s || t===rev) return w;
+  }
+  return null;
+}
+function sameCanonical(word,coords){
+  const canon=SOLUTIONS[word];
+  if(!canon || canon.length!==coords.length) return false;
+  const a=canon.map(x=>x.join(",")).join("|");
+  const b=coords.map(x=>x.join(",")).join("|");
+  const br=[...coords].reverse().map(x=>x.join(",")).join("|");
+  return a===b || a===br;
+}
+function buildBoard(el, mode){
+  el.innerHTML="";
+  GRID.forEach((row,r)=>row.split("").forEach((ch,c)=>{
+    const cell=document.createElement("div");
+    cell.className="cell";
+    cell.dataset.r=r; cell.dataset.c=c;
+    cell.setAttribute("role","button");
+    cell.setAttribute("aria-label","Row "+(r+1)+", column "+(c+1)+", "+ch);
+    const dot=document.createElement("span"); dot.className="dot";
+    const letter=document.createElement("span"); letter.className="letter"; letter.textContent=ch;
+    cell.append(dot,letter);
+    if(mode==="student"){
+      cell.addEventListener("pointerdown",e=>{
+        pointerDragging=true; dragStart={r,c}; dragCurrent={r,c};
+        cell.setPointerCapture?.(e.pointerId); previewSelection();
+      });
+      cell.addEventListener("pointerenter",()=>{if(pointerDragging){dragCurrent={r,c};previewSelection()}});
+      cell.addEventListener("pointerup",()=>{if(pointerDragging){dragCurrent={r,c};finishSelection(dragStart,dragCurrent);pointerDragging=false;dragStart=null;dragCurrent=null}});
+      cell.addEventListener("click",()=>{
+        if(pointerDragging) return;
+        if(!clickStart){clickStart={r,c};previewClickStart();}
+        else{const a=clickStart;clickStart=null;clearPreview();finishSelection(a,{r,c});}
+      });
+    }
+    el.appendChild(cell);
+  }));
+}
+function clearPreview(){
+  document.querySelectorAll("#studentBoard .cell.preview").forEach(c=>c.classList.remove("preview"));
+}
+function previewClickStart(){
+  clearPreview();
+  const idx=clickStart.r*20+clickStart.c;
+  $("studentBoard").children[idx]?.classList.add("preview");
+}
+function previewSelection(){
+  clearPreview();
+  const coords=normalizeLine(dragStart,dragCurrent);
+  if(!coords) return;
+  coords.forEach(([r,c])=>$("studentBoard").children[r*20+c]?.classList.add("preview"));
+}
+async function finishSelection(a,b){
+  clearPreview();
+  const coords=normalizeLine(a,b);
+  if(!coords || coords.length<2){message("Select a straight horizontal, vertical, or diagonal word.");return}
+  const word=wordForCoords(coords);
+  if(!word || !sameCanonical(word,coords)){message("Not one of the weather words. Keep looking!");return}
+  if(student.found.includes(word)){message(student.teamName+" already found "+word+".");return}
+  try{
+    const j=await backend({action:"wordFindClaim",gameCode:student.code,teamId:student.teamId,studentName:student.name,word});
+    message("✓ "+word+"! Point for "+student.teamName+".",true);
+    await refreshStudent();
+  }catch(e){message(e.message)}
+}
+function message(text,good=false){
+  $("studentMessage").textContent=text;
+  $("studentMessage").className="notice"+(good?" good":"");
+  show("studentMessage",true);
+  $("studentMessage").classList.remove("flash"); void $("studentMessage").offsetWidth; $("studentMessage").classList.add("flash");
+}
+
+function renderWords(){
+  $("studentWords").innerHTML="";
+  WORDS.forEach(w=>{
+    const d=document.createElement("div");
+    d.className="word"+(student.found.includes(w)?" done":"");
+    d.textContent=w;
+    $("studentWords").appendChild(d);
+  });
+}
+function paintStudentBoard(){
+  [...$("studentBoard").children].forEach(c=>{c.classList.remove("found");c.querySelector(".dot").style.background=""});
+  student.found.forEach(w=>{
+    (SOLUTIONS[w]||[]).forEach(([r,c])=>{
+      const cell=$("studentBoard").children[r*20+c];
+      cell.classList.add("found");
+      cell.querySelector(".dot").style.background=student.color;
+    });
+  });
+}
+function renderLeaderboard(el,teams){
+  el.innerHTML="";
+  [...teams].sort((a,b)=>b.score-a.score || a.name.localeCompare(b.name)).forEach(t=>{
+    const row=document.createElement("div");row.className="team-row";
+    const left=document.createElement("div");left.className="team-left";
+    const sw=document.createElement("span");sw.className="swatch";sw.style.background=t.color;
+    const nm=document.createElement("span");nm.className="team-name";nm.textContent=t.name;
+    left.append(sw,nm);
+    const score=document.createElement("span");score.className="team-score";score.textContent=t.score+" / 40";
+    row.append(left,score);el.appendChild(row);
+  });
+}
+
+$("loadTeams").addEventListener("click",async()=>{
+  const code=$("studentCode").value.trim().toUpperCase();
+  const name=$("studentName").value.trim();
+  $("joinError").textContent="";
+  if(!code||!name){$("joinError").textContent="Enter your class code and name.";return}
+  try{
+    const j=await backend({action:"wordFindJoinInfo",gameCode:code});
+    student.code=code;student.name=name;
+    $("teamSelect").innerHTML="";
+    j.teams.forEach(t=>{
+      const o=document.createElement("option");
+      o.value=t.id;o.textContent=t.name+" • "+t.colorName;o.dataset.team=JSON.stringify(t);
+      $("teamSelect").appendChild(o);
+    });
+    show("teamChoice",true);
+  }catch(e){$("joinError").textContent=e.message}
+});
+
+$("joinGame").addEventListener("click",async()=>{
+  const o=$("teamSelect").selectedOptions[0]; if(!o)return;
+  const t=JSON.parse(o.dataset.team);
+  student.teamId=t.id;student.teamName=t.name;student.color=t.color;
+  $("studentSwatch").style.background=t.color;
+  $("studentTeamName").textContent=t.name;
+  buildBoard($("studentBoard"),"student");
+  show("joinPanel",false);show("studentGame",true);
+  await refreshStudent();
+  clearInterval(studentPoll);studentPoll=setInterval(refreshStudent,2000);
+});
+
+async function refreshStudent(){
+  if(!student.code||!student.teamId)return;
+  try{
+    const j=await backend({action:"wordFindState",gameCode:student.code,teamId:student.teamId});
+    student.found=j.myFoundWords||[];
+    const me=(j.teams||[]).find(t=>t.id===student.teamId);
+    if(me){student.color=me.color;student.teamName=me.name;$("studentSwatch").style.background=me.color;$("studentTeamName").textContent=me.name}
+    $("studentScore").textContent=student.found.length;
+    paintStudentBoard();renderWords();renderLeaderboard($("studentLeaderboard"),j.teams||[]);
+  }catch(e){}
+}
+
+function renderTeamFields(){
+  const n=Number($("teamCount").value);
+  $("teamNameFields").innerHTML="";
+  for(let i=0;i<n;i++){
+    const row=document.createElement("div");row.className="setup-team";
+    const sw=document.createElement("span");sw.className="swatch";sw.style.background=TEAM_COLORS[i].hex;
+    const input=document.createElement("input");input.value=DEFAULT_TEAM_NAMES[i];input.dataset.i=i;input.maxLength=30;
+    row.append(sw,input);$("teamNameFields").appendChild(row);
+  }
+}
+$("teamCount").addEventListener("change",renderTeamFields);renderTeamFields();
+
+$("createGame").addEventListener("click",async()=>{
+  const gameName=$("gameName").value.trim(),pin=$("teacherPinCreate").value.trim();
+  const teams=[...$("teamNameFields input")].map((inp,i)=>({name:inp.value.trim()||DEFAULT_TEAM_NAMES[i],color:TEAM_COLORS[i].hex,colorName:TEAM_COLORS[i].name}));
+  if(!gameName||pin.length<4){show("createStatus",true);$("createStatus").textContent="Enter a game name and a teacher PIN of at least 4 characters.";return}
+  try{
+    const j=await backend({action:"wordFindCreateGame",gameName,pin,teams});
+    $("createStatus").className="notice good";show("createStatus",true);
+    $("createStatus").innerHTML="Game created. Student code: <span class='code'>"+j.gameCode+"</span>";
+    $("teacherCode").value=j.gameCode;$("teacherPin").value=pin;
+    teacher.code=j.gameCode;teacher.pin=pin;
+    await loadTeacher();
+  }catch(e){show("createStatus",true);$("createStatus").className="notice";$("createStatus").textContent=e.message}
+});
+
+$("openGame").addEventListener("click",async()=>{
+  teacher.code=$("teacherCode").value.trim().toUpperCase();
+  teacher.pin=$("teacherPin").value.trim();
+  await loadTeacher();
+});
+$("refreshTeacher").addEventListener("click",loadTeacher);
+
+async function loadTeacher(){
+  $("teacherError").textContent="";
+  try{
+    const j=await backend({action:"wordFindTeacherState",gameCode:teacher.code,pin:teacher.pin});
+    $("dashName").textContent=j.gameName;$("dashCode").textContent=j.gameCode;
+    renderLeaderboard($("teacherLeaderboard"),j.teams||[]);
+    renderTeacherBoard(j);
+    renderTeacherProgress(j);
+    show("teacherDash",true);
+    clearInterval(teacherPoll);teacherPoll=setInterval(loadTeacher,2000);
+  }catch(e){$("teacherError").textContent=e.message;show("teacherDash",false)}
+}
+function renderTeacherBoard(j){
+  if(!$("teacherBoard").children.length) buildBoard($("teacherBoard"),"teacher");
+  const teamMap=Object.fromEntries((j.teams||[]).map(t=>[t.id,t]));
+  const cellColors=Array.from({length:400},()=>new Set());
+  (j.finds||[]).forEach(f=>{
+    const t=teamMap[f.teamId];if(!t)return;
+    (SOLUTIONS[f.word]||[]).forEach(([r,c])=>cellColors[r*20+c].add(t.color));
+  });
+  [...$("teacherBoard").children].forEach((cell,i)=>{
+    const colors=[...cellColors[i]];
+    const dot=cell.querySelector(".dot");
+    cell.classList.toggle("found",colors.length>0);
+    if(!colors.length){dot.style.background="";return}
+    if(colors.length===1){dot.style.background=colors[0];return}
+    const step=100/colors.length;
+    const stops=[];
+    colors.forEach((color,k)=>{stops.push(`${color} ${k*step}%`,`${color} ${(k+1)*step}%`)});
+    dot.style.background=`linear-gradient(135deg,${stops.join(",")})`;
+  });
+}
+function renderTeacherProgress(j){
+  $("teacherProgress").innerHTML="";
+  (j.teams||[]).forEach(t=>{
+    const box=document.createElement("div");box.style.marginBottom="12px";
+    const title=document.createElement("div");title.className="team-badge";
+    const sw=document.createElement("span");sw.className="swatch";sw.style.background=t.color;
+    const nm=document.createElement("strong");nm.textContent=t.name+" — "+t.score+"/40";
+    title.append(sw,nm);
+    const found=(j.finds||[]).filter(f=>f.teamId===t.id).map(f=>f.word);
+    const txt=document.createElement("div");txt.className="help";txt.textContent=found.length?found.join(" • "):"No words yet";
+    box.append(title,txt);$("teacherProgress").appendChild(box);
+  });
+}
+
+$("resetGame").addEventListener("click",async()=>{
+  if(!confirm("Reset all team finds and scores for this game?"))return;
+  try{await backend({action:"wordFindResetGame",gameCode:teacher.code,pin:teacher.pin});await loadTeacher()}
+  catch(e){alert(e.message)}
+});
+</script>
+</body>
+</html>
