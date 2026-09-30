@@ -109,7 +109,7 @@ footer{text-align:center;color:var(--muted);font-size:.82rem;padding:22px 0 8px}
     <div class="notice">
       <span class="team-badge"><span class="swatch" id="studentSwatch"></span><span id="studentTeamName"></span></span>
       <span> • </span><strong id="studentScore">0</strong> / 40 words
-      <div class="help">Drag across a word, or click/tap the first letter and then the last letter. Once any team finds a word, it is claimed for the whole class in that team's color.</div>
+      <div class="help">Press on the first letter and drag toward the last letter — the line will snap to the nearest straight direction. Or tap the first and last letters. Once any team finds a word, it is claimed for the whole class in that team's color.</div>
     </div>
 
     <div class="game-layout">
@@ -277,21 +277,106 @@ function buildBoard(el, mode){
     const dot=document.createElement("span"); dot.className="dot";
     const letter=document.createElement("span"); letter.className="letter"; letter.textContent=ch;
     cell.append(dot,letter);
-    if(mode==="student"){
-      cell.addEventListener("pointerdown",e=>{
-        pointerDragging=true; dragStart={r,c}; dragCurrent={r,c};
-        cell.setPointerCapture?.(e.pointerId); previewSelection();
-      });
-      cell.addEventListener("pointerenter",()=>{if(pointerDragging){dragCurrent={r,c};previewSelection()}});
-      cell.addEventListener("pointerup",()=>{if(pointerDragging){dragCurrent={r,c};finishSelection(dragStart,dragCurrent);pointerDragging=false;dragStart=null;dragCurrent=null}});
-      cell.addEventListener("click",()=>{
-        if(pointerDragging) return;
-        if(!clickStart){clickStart={r,c};previewClickStart();}
-        else{const a=clickStart;clickStart=null;clearPreview();finishSelection(a,{r,c});}
-      });
-    }
     el.appendChild(cell);
   }));
+
+  if(mode==="student"){
+    let moved=false;
+
+    const cellFromPoint = (x,y) => {
+      const hit=document.elementFromPoint(x,y);
+      const cell=hit?.closest?.(".cell");
+      return cell && el.contains(cell) ? cell : null;
+    };
+
+    el.addEventListener("pointerdown",e=>{
+      const cell=e.target.closest(".cell");
+      if(!cell) return;
+      e.preventDefault();
+      moved=false;
+      pointerDragging=true;
+      dragStart={r:Number(cell.dataset.r),c:Number(cell.dataset.c)};
+      dragCurrent={...dragStart};
+      el.setPointerCapture?.(e.pointerId);
+      previewSelection();
+    });
+
+    el.addEventListener("pointermove",e=>{
+      if(!pointerDragging) return;
+      const cell=cellFromPoint(e.clientX,e.clientY);
+      if(!cell) return;
+      const raw={r:Number(cell.dataset.r),c:Number(cell.dataset.c)};
+      const snapped=snapEnd(dragStart,raw);
+      if(!snapped) return;
+      if(snapped.r!==dragCurrent.r || snapped.c!==dragCurrent.c) moved=true;
+      dragCurrent=snapped;
+      previewSelection();
+    });
+
+    el.addEventListener("pointerup",e=>{
+      if(!pointerDragging) return;
+      e.preventDefault();
+
+      const start=dragStart;
+      const end=dragCurrent;
+      pointerDragging=false;
+      dragStart=null;
+      dragCurrent=null;
+
+      if(moved && (start.r!==end.r || start.c!==end.c)){
+        clickStart=null;
+        clearPreview();
+        finishSelection(start,end);
+        return;
+      }
+
+      // Accessible fallback: tap/click first letter, then tap/click last letter.
+      if(!clickStart){
+        clickStart=start;
+        previewClickStart();
+      }else{
+        const a=clickStart;
+        clickStart=null;
+        clearPreview();
+        const snapped=snapEnd(a,start);
+        finishSelection(a,snapped);
+      }
+    });
+
+    el.addEventListener("pointercancel",()=>{
+      pointerDragging=false;
+      dragStart=null;
+      dragCurrent=null;
+      clearPreview();
+    });
+  }
+}
+
+function snapEnd(start,raw){
+  if(!start||!raw) return raw;
+  const dr=raw.r-start.r, dc=raw.c-start.c;
+  if(dr===0&&dc===0) return {...raw};
+
+  const angle=Math.atan2(dr,dc);
+  const eighth=Math.PI/4;
+  const k=Math.round(angle/eighth);
+  const dirs=[
+    [0,1],[1,1],[1,0],[1,-1],[0,-1],[-1,-1],[-1,0],[-1,1]
+  ];
+  const idx=((k%8)+8)%8;
+  const [sr,sc]=dirs[idx];
+
+  let steps;
+  if(sr===0) steps=Math.abs(dc);
+  else if(sc===0) steps=Math.abs(dr);
+  else steps=Math.max(Math.abs(dr),Math.abs(dc));
+
+  while(steps>0){
+    const rr=start.r+sr*steps, cc=start.c+sc*steps;
+    if(rr>=0&&rr<20&&cc>=0&&cc<20) return {r:rr,c:cc};
+    steps--;
+  }
+  return {...start};
 }
 function clearPreview(){
   document.querySelectorAll("#studentBoard .cell.preview").forEach(c=>c.classList.remove("preview"));
